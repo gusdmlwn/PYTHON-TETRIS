@@ -1,0 +1,507 @@
+import sys
+import pygame
+from pygame.locals import*
+from random import randint
+
+#파이게임을 활용한 테트리스
+
+
+#블록 7가지 종류 초기화
+BLOCK_DATA1 = [[0,0,1,1,1,1,0,0,0],[0,1,0,0,1,0,0,1,1],[0,0,0,1,1,1,1,0,0],[1,1,0,0,1,0,0,1,0]]
+BLOCK_DATA2 = [[0,0,0,1,1,0,0,1,1],[0,1,0,1,1,0,1,0,0],[0,0,0,1,1,0,0,1,1],[0,1,0,1,1,0,1,0,0]]
+BLOCK_DATA3 = [[0,0,0,0,1,1,1,1,0],[1,0,0,1,1,0,0,1,0],[0,0,0,0,1,1,1,1,0],[1,0,0,1,1,0,0,1,0]]
+BLOCK_DATA4 = [[0,0,0,0,1,0,1,1,1],[1,0,0,1,1,0,1,0,0],[1,1,1,0,1,0,0,0,0],[0,0,1,0,1,1,0,0,1]]
+BLOCK_DATA5 = [[0,0,0,1,0,0,1,1,1],[0,1,1,0,1,0,0,1,0],[0,0,0,1,1,1,0,0,1],[0,0,1,0,0,1,0,1,1]]
+BLOCK_DATA6 = [[0,0,0,1,1,0,1,1,0],[0,0,0,1,1,0,1,1,0],[0,0,0,1,1,0,1,1,0],[0,0,0,1,1,0,1,1,0]]
+BLOCK_DATA7 = [[0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1],[1,0,0,0,1,0,0,0,1,0,0,0,1,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1],[1,0,0,0,1,0,0,0,1,0,0,0,1,0,0,0]]
+BLOCK_DATA = [BLOCK_DATA1,BLOCK_DATA2,BLOCK_DATA3,BLOCK_DATA4,BLOCK_DATA5,BLOCK_DATA6,BLOCK_DATA7]
+FIELD_DATA1 = [1,0,0,0,0,0,0,0,0,0,0,1]
+FIELD_DATA2 = [1,1,1,1,1,1,1,1,1,1,1,1]
+FIELD_DATA = list()
+
+#테트리스 기본 맵 초기화
+for i in range(29):
+    FIELD_DATA.append([1,0,0,0,0,0,0,0,0,0,0,1])
+FIELD_DATA.append([1,1,1,1,1,1,1,1,1,1,1,1])
+
+pygame.init()
+BLACK= ( 0,  0,  0)
+WHITE= (255,255,255)
+BLUE = ( 0,  0,255)
+GREEN= ( 0,255,  0)
+RED  = (255,  0,  0)
+BLOKC_SIZE = 25
+size  = [500,750]
+GameSpeed = 30
+screen= pygame.display.set_mode(size)
+
+pygame.display.set_caption("Tetris")
+done= False
+clock= pygame.time.Clock()
+
+#화면에 보여줄 글자들 폰트 설정 및 크기 설정
+font = pygame.font.Font(None, 32)
+font2 = pygame.font.Font(None, 64)
+textSurfaceObj = font.render('Hello world!', True, BLACK, WHITE)
+textRectObj = textSurfaceObj.get_rect()
+textRectObj.center = (400, 20)
+textRectObj2 = textSurfaceObj.get_rect()
+textRectObj2.center = (400, 60)
+textRectObj3 = textSurfaceObj.get_rect()
+textRectObj3.center = (150, 300)
+textRectObj4 = textSurfaceObj.get_rect()
+textRectObj4.center = (370, 560)
+textRectObj5 = textSurfaceObj.get_rect()
+textRectObj5.center = (370, 600)
+textRectObj6 = textSurfaceObj.get_rect()
+textRectObj6.center = (370, 640)
+textRectObj7 = textSurfaceObj.get_rect()
+textRectObj7.center = (370, 680)
+width=12
+height=30
+difficult = 1000
+#블락 클래스 정의
+class BLOCK:
+    type = list() #블락의 종류
+    turn = int #블락의 회전된 모습을 가리킴
+    #도형의 왼쪽 가장 위에 위치
+    xpos = int
+    ypos = int
+    #테트리스 화면에 보여줄 가장 밑에 어디에 위치될 것인지를 표시할 좌표
+    fake_xpos = int
+    fake_ypos = int
+    #움직일 수 있는 상태인지를 확인할 변수
+    Move = bool
+    Size = int
+    
+    def __init__(self):
+        #7가지 도형 중 하나로 초기화
+        temp = randint(0,6)
+        #블락의 종류 랜덤하게 결정
+        self.type = BLOCK_DATA[temp]
+        self.xpos = 3*BLOKC_SIZE
+        self.ypos = -2*BLOKC_SIZE
+        self.fake_xpos = 0
+        self.fake_ypos = 0
+        self.turn = 0
+        self.Move = False
+        #1자 도형은 4x4를 이용하기 때문에 다른 초기화로 구분
+        if(len(self.type[self.turn])==16):
+            self.Size = 4
+        else:
+            self.Size = 3
+
+#테트리스 게임매니저 클래스 정의
+class Tetris:
+    #내려올 도형을 초기화하여 받음
+    Block = BLOCK()
+    #다음 내려올 도형을 미리 초기화 하여 보여주기 위하고 또 교체하는 기능을 사용하기 위해 바음
+    Block2 = BLOCK()
+    #맵을 그리기위한 배열
+    Field = list()
+    #화면에 보여줄 스코어
+    Score = str
+    #도형이 내려오는 스피드 변수
+    Difficult = int
+    #게임이 끝났는지 체크 변수
+    gameover = bool
+    def __init__(self):
+        self.Block = BLOCK()
+        self.Block2 = BLOCK()
+        self.Field = FIELD_DATA
+        self.gameover = False
+        self.Score = 0
+        self.Difficult = 1
+        
+    #도형이 스페이스바 입력 시 어디에 위치할 지 설정하고 그리는 함수
+    def DrawDeepBlock(self):
+        i = -1
+        self.Block.fake_xpos = self.Block.xpos
+        self.Block.fake_ypos = self.Block.ypos
+        while self.ColliderBlock(self.Block.fake_xpos,self.Block.fake_ypos)==False:
+            self.Block.fake_ypos+=BLOKC_SIZE
+        for j in range(len(self.Block.type[self.Block.turn])):
+                if(self.Block.type[self.Block.turn][j]!=0):
+                    if(self.Block.Size==3):
+                        if(j<self.Block.Size):
+                            pygame.draw.rect(screen, RED, [self.Block.fake_xpos+(j*BLOKC_SIZE),self.Block.fake_ypos,BLOKC_SIZE,BLOKC_SIZE])
+                            pygame.draw.rect(screen, BLACK, [self.Block.fake_xpos+(j*BLOKC_SIZE),self.Block.fake_ypos,BLOKC_SIZE,BLOKC_SIZE],2)
+                        elif(j<2*(self.Block.Size)):
+                            pygame.draw.rect(screen, RED, [self.Block.fake_xpos+((j-self.Block.Size)*BLOKC_SIZE),self.Block.fake_ypos+BLOKC_SIZE,BLOKC_SIZE,BLOKC_SIZE])
+                            pygame.draw.rect(screen, BLACK, [self.Block.fake_xpos+((j-self.Block.Size)*BLOKC_SIZE),self.Block.fake_ypos+BLOKC_SIZE,BLOKC_SIZE,BLOKC_SIZE],2)
+                        else:
+                            pygame.draw.rect(screen, RED, [self.Block.fake_xpos+((j-(2*self.Block.Size))*BLOKC_SIZE),self.Block.fake_ypos+(BLOKC_SIZE*2),BLOKC_SIZE,BLOKC_SIZE])
+                            pygame.draw.rect(screen, BLACK, [self.Block.fake_xpos+((j-(2*self.Block.Size))*BLOKC_SIZE),self.Block.fake_ypos+(BLOKC_SIZE*2),BLOKC_SIZE,BLOKC_SIZE],2)
+                            
+                    elif(self.Block.Size==4):
+                        if(j<self.Block.Size):
+                            pygame.draw.rect(screen, RED, [self.Block.fake_xpos+(j*BLOKC_SIZE),self.Block.fake_ypos,BLOKC_SIZE,BLOKC_SIZE])
+                            pygame.draw.rect(screen, BLACK, [self.Block.fake_xpos+(j*BLOKC_SIZE),self.Block.fake_ypos,BLOKC_SIZE,BLOKC_SIZE],2)
+                        elif(j<2*(self.Block.Size)):
+                            pygame.draw.rect(screen, RED, [self.Block.fake_xpos+((j-self.Block.Size)*BLOKC_SIZE),self.Block.fake_ypos+BLOKC_SIZE,BLOKC_SIZE,BLOKC_SIZE])
+                            pygame.draw.rect(screen, BLACK, [self.Block.fake_xpos+((j-self.Block.Size)*BLOKC_SIZE),self.Block.fake_ypos+BLOKC_SIZE,BLOKC_SIZE,BLOKC_SIZE],2)
+                        elif(j<3*(self.Block.Size)):
+                            pygame.draw.rect(screen, RED, [self.Block.fake_xpos+((j-(2*self.Block.Size))*BLOKC_SIZE),self.Block.fake_ypos+(BLOKC_SIZE*2),BLOKC_SIZE,BLOKC_SIZE])
+                            pygame.draw.rect(screen, BLACK, [self.Block.fake_xpos+((j-(2*self.Block.Size))*BLOKC_SIZE),self.Block.fake_ypos+(BLOKC_SIZE*2),BLOKC_SIZE,BLOKC_SIZE],2)
+                        else:
+                            pygame.draw.rect(screen, RED, [self.Block.fake_xpos+((j-(3*self.Block.Size))*BLOKC_SIZE),self.Block.fake_ypos+(BLOKC_SIZE*3),BLOKC_SIZE,BLOKC_SIZE])
+                            pygame.draw.rect(screen, BLACK, [self.Block.fake_xpos+((j-(3*self.Block.Size))*BLOKC_SIZE),self.Block.fake_ypos+(BLOKC_SIZE*3),BLOKC_SIZE,BLOKC_SIZE],2)
+    #다음에 내려올 도형을 미리 그려주는 함수
+    def DrawNextBlock(self):
+        for j in range(len(self.Block2.type[self.Block2.turn])):
+                if(self.Block2.type[self.Block2.turn][j]!=0):
+                    if(self.Block2.Size==3):
+                        if(j<self.Block2.Size):
+                            pygame.draw.rect(screen, BLACK, [340+(j*BLOKC_SIZE),200,BLOKC_SIZE,BLOKC_SIZE])
+                            pygame.draw.rect(screen, RED, [340+(j*BLOKC_SIZE),200,BLOKC_SIZE,BLOKC_SIZE],2)
+                        elif(j<2*(self.Block2.Size)):
+                            pygame.draw.rect(screen, BLACK, [340+((j-self.Block2.Size)*BLOKC_SIZE),200+BLOKC_SIZE,BLOKC_SIZE,BLOKC_SIZE])
+                            pygame.draw.rect(screen, RED, [340+((j-self.Block2.Size)*BLOKC_SIZE),200+BLOKC_SIZE,BLOKC_SIZE,BLOKC_SIZE],2)
+                        else:
+                            pygame.draw.rect(screen, BLACK, [340+((j-(2*self.Block2.Size))*BLOKC_SIZE),200+(BLOKC_SIZE*2),BLOKC_SIZE,BLOKC_SIZE])
+                            pygame.draw.rect(screen, RED, [340+((j-(2*self.Block2.Size))*BLOKC_SIZE),200+(BLOKC_SIZE*2),BLOKC_SIZE,BLOKC_SIZE],2)
+                    elif(self.Block2.Size==4):
+                        if(j<self.Block2.Size):
+                            pygame.draw.rect(screen, BLACK, [340+(j*BLOKC_SIZE),200,BLOKC_SIZE,BLOKC_SIZE])
+                            pygame.draw.rect(screen, RED, [340+(j*BLOKC_SIZE),200,BLOKC_SIZE,BLOKC_SIZE],2)
+                        elif(j<2*(self.Block2.Size)):
+                            pygame.draw.rect(screen, BLACK, [340+((j-self.Block2.Size)*BLOKC_SIZE),200+BLOKC_SIZE,BLOKC_SIZE,BLOKC_SIZE])
+                            pygame.draw.rect(screen, RED, [340+((j-self.Block2.Size)*BLOKC_SIZE),200+BLOKC_SIZE,BLOKC_SIZE,BLOKC_SIZE],2)
+                        elif(j<3*(self.Block2.Size)):
+                            pygame.draw.rect(screen, BLACK, [340+((j-(2*self.Block2.Size))*BLOKC_SIZE),200+(BLOKC_SIZE*2),BLOKC_SIZE,BLOKC_SIZE])
+                            pygame.draw.rect(screen, RED, [340+((j-(2*self.Block2.Size))*BLOKC_SIZE),200+(BLOKC_SIZE*2),BLOKC_SIZE,BLOKC_SIZE],2)
+                        else:
+                            pygame.draw.rect(screen, BLACK, [340+((j-(3*self.Block2.Size))*BLOKC_SIZE),200+(BLOKC_SIZE*3),BLOKC_SIZE,BLOKC_SIZE])
+                            pygame.draw.rect(screen, RED, [340+((j-(3*self.Block2.Size))*BLOKC_SIZE),200+(BLOKC_SIZE*3),BLOKC_SIZE,BLOKC_SIZE],2)
+    #내려오는 도형이 맵과 부딪히는지 체크하는 함수
+    def ColliderBlock(self,xpos,ypos):
+        for i in range(height):
+            for j in range(width):
+                for k in range(len(self.Block.type[self.Block.turn])):
+                    if(self.Field[i][j]==1):
+                        if(self.Block.type[self.Block.turn][k]==1):
+                            if(self.Block.Size==3):
+                                if(k<self.Block.Size):
+                                    if(xpos+(k*BLOKC_SIZE)==j*BLOKC_SIZE):
+                                        if(ypos+BLOKC_SIZE ==i*BLOKC_SIZE):
+                                            return True
+                                elif(k<2*(self.Block.Size)):
+                                    if(xpos+((k-self.Block.Size)*BLOKC_SIZE)==j*BLOKC_SIZE):
+                                        if(ypos+(2*BLOKC_SIZE) ==i*BLOKC_SIZE):
+                                            return True
+                                else:
+                                    if(xpos+((k-(2*self.Block.Size))*BLOKC_SIZE)==j*BLOKC_SIZE):
+                                        if(ypos+(3*BLOKC_SIZE) ==i*BLOKC_SIZE):
+                                            return True
+                            elif(self.Block.Size==4):
+                                if(k<self.Block.Size):
+                                    if(xpos+(k*BLOKC_SIZE)==j*BLOKC_SIZE):
+                                        if(ypos+BLOKC_SIZE ==i*BLOKC_SIZE):
+                                            return True
+                                elif(k<2*(self.Block.Size)):
+                                    if(xpos+((k-self.Block.Size)*BLOKC_SIZE)==j*BLOKC_SIZE):
+                                        if(ypos+(2*BLOKC_SIZE) ==i*BLOKC_SIZE):
+                                            return True
+                                elif(k<3*(self.Block.Size)):
+                                    if(xpos+((k-(2*self.Block.Size))*BLOKC_SIZE)==j*BLOKC_SIZE):
+                                        if(ypos+(3*BLOKC_SIZE) ==i*BLOKC_SIZE):
+                                            return True
+                                else:
+                                    if(xpos+((k-(3*self.Block.Size))*BLOKC_SIZE)==j*BLOKC_SIZE):
+                                        if(ypos+(4*BLOKC_SIZE) ==i*BLOKC_SIZE):
+                                            return True
+        return False
+    #필드에 닿은 도형을 필드에 카피시키는 함수
+    def CopyField(self):
+        for i in range(height):
+            for j in range(width):
+                for k in range(len(self.Block.type[self.Block.turn])):
+                    if(self.Block.type[self.Block.turn][k]==1):
+                        if(self.Block.Size==3):
+                            if(k<self.Block.Size):
+                                if(self.Block.xpos+(k*BLOKC_SIZE)==j*BLOKC_SIZE):
+                                    if(self.Block.ypos ==i*BLOKC_SIZE):
+                                        self.Field[i][j]=1
+                                        
+                            elif(k<2*(self.Block.Size)):
+                                if(self.Block.xpos+((k-self.Block.Size)*BLOKC_SIZE)==j*BLOKC_SIZE):
+                                    if(self.Block.ypos+(1*BLOKC_SIZE) ==i*BLOKC_SIZE):
+                                        self.Field[i][j]=1
+                            else:
+                                if(self.Block.xpos+((k-(2*self.Block.Size))*BLOKC_SIZE)==j*BLOKC_SIZE):
+                                    if(self.Block.ypos+(2*BLOKC_SIZE) ==i*BLOKC_SIZE):
+                                        self.Field[i][j]=1
+                        elif(self.Block.Size==4):
+                            if(k<self.Block.Size):
+                                if(self.Block.xpos+(k*BLOKC_SIZE)==j*BLOKC_SIZE):
+                                    if(self.Block.ypos ==i*BLOKC_SIZE):
+                                        self.Field[i][j]=1
+                            elif(k<2*(self.Block.Size)):
+                                if(self.Block.xpos+((k-self.Block.Size)*BLOKC_SIZE)==j*BLOKC_SIZE):
+                                    if(self.Block.ypos+(BLOKC_SIZE) ==i*BLOKC_SIZE):
+                                        self.Field[i][j]=1
+                            elif(k<3*(self.Block.Size)):
+                                if(self.Block.xpos+((k-(2*self.Block.Size))*BLOKC_SIZE)==j*BLOKC_SIZE):
+                                    if(self.Block.ypos+(2*BLOKC_SIZE) ==i*BLOKC_SIZE):
+                                        self.Field[i][j]=1
+                            else:
+                                if(self.Block.xpos+((k-(3*self.Block.Size))*BLOKC_SIZE)==j*BLOKC_SIZE):
+                                    if(self.Block.ypos+(3*BLOKC_SIZE) ==i*BLOKC_SIZE):
+                                        self.Field[i][j]=1
+    #블록이 필드에 카피되었을 시 새로 도형을 추가할 함수
+    def addBlock(self):
+        self.Block = self.Block2
+        self.Block2 = BLOCK()
+    #다음 블록으로 교체하는 키 입력 시 교체
+    def ChangeBlock(self):
+        x = self.Block.xpos
+        y = self.Block.ypos
+        self.Block = self.Block2
+        self.Block.xpos = x
+        self.Block.ypos = y
+        self.Block2 = BLOCK()
+    #필드맵을 그려주는 함수
+    def DrawField(self):
+        for i in range(height):
+            for j in range(width):
+                if(self.Field[i][j]==1):
+                    pygame.draw.rect(screen, GREEN, [(j)*BLOKC_SIZE,(i)*BLOKC_SIZE,BLOKC_SIZE,BLOKC_SIZE])
+                    pygame.draw.rect(screen, BLACK, [(j)*BLOKC_SIZE,(i)*BLOKC_SIZE,BLOKC_SIZE,BLOKC_SIZE],2)
+    #맵의 y축의 한 열이 모두 채워졌을 시 라인이 사라집니다. 그 사라진 라인은 위에 도형들이 내려와서 채워야 하기 때문에 만든 함수
+    def MoveDownLine(self,temp):
+        for i in reversed(range(temp+1)):
+            for j in range(width):
+                if(i-1>=0):
+                    if(self.Field[i-1][j]==1):
+                        self.Field[i][j] = 1
+                    elif(self.Field[i-1][j]==0):
+                        self.Field[i][j] = 0                    
+    #맵의 y축의 한 열이 모두 채워졌을 시 라인을 지우는 함수
+    def ClearLine(self):
+        flag = True
+        for i in range(height-1):
+            flag = True
+            for k in range(width):
+                if(self.Field[i][k]==0):
+                    flag=False
+                    break
+            if(flag==True):
+                self.Score += 100
+                for j in range(1,width-1):
+                    self.Field[i][j]=0
+                self.MoveDownLine(i)
+    #양쪽 벽에 부딪혔을 시 뚫고 나가면 안되기 때문에 충돌 체크함수
+    def ColliderLeftRight(self,direction):
+         for i in range(height):
+            for j in range(width):
+                for k in range(len(self.Block.type[self.Block.turn])):
+                    if(self.Field[i][j]==1):
+                        if(self.Block.type[self.Block.turn][k]==1):
+                            if(self.Block.Size==3):
+                                if(k<self.Block.Size):
+                                    if(self.Block.xpos+direction+(k*BLOKC_SIZE)==j*BLOKC_SIZE):
+                                        if(self.Block.ypos ==i*BLOKC_SIZE):
+                                            return True
+                                elif(k<2*(self.Block.Size)):
+                                    if(self.Block.xpos+direction+((k-self.Block.Size)*BLOKC_SIZE)==j*BLOKC_SIZE):
+                                        if(self.Block.ypos+(2*BLOKC_SIZE) ==i*BLOKC_SIZE):
+                                            return True
+                                else:
+                                    if(self.Block.xpos+direction+((k-(2*self.Block.Size))*BLOKC_SIZE)==j*BLOKC_SIZE):
+                                        if(self.Block.ypos+(3*BLOKC_SIZE) ==i*BLOKC_SIZE):
+                                            return True
+                            elif(self.Block.Size==4):
+                                if(k<self.Block.Size):
+                                    if(self.Block.xpos+direction+(k*BLOKC_SIZE)==j*BLOKC_SIZE):
+                                        if(self.Block.ypos+BLOKC_SIZE ==i*BLOKC_SIZE):
+                                            return True
+                                elif(k<2*(self.Block.Size)):
+                                    if(self.Block.xpos+direction+((k-self.Block.Size)*BLOKC_SIZE)==j*BLOKC_SIZE):
+                                        if(self.Block.ypos+(2*BLOKC_SIZE) ==i*BLOKC_SIZE):
+                                            return True
+                                elif(k<3*(self.Block.Size)):
+                                    if(self.Block.xpos+direction+((k-(2*self.Block.Size))*BLOKC_SIZE)==j*BLOKC_SIZE):
+                                        if(self.Block.ypos+(3*BLOKC_SIZE) ==i*BLOKC_SIZE):
+                                            return True
+                                else:
+                                    if(self.Block.xpos+direction+((k-(3*self.Block.Size))*BLOKC_SIZE)==j*BLOKC_SIZE):
+                                        if(self.Block.ypos+(4*BLOKC_SIZE) ==i*BLOKC_SIZE):
+                                            return True
+         return False
+    #도형을 회전 시킬 때에도 벽에 뚫리면서 바뀔 수 있기 때문에 충돌 체크
+    def ColliderChangeTurn(self):
+        temp = self.Block.turn+1
+        if(temp>=4):
+            temp = 0
+        for i in range(height):
+            for j in range(width):
+                for k in range(len(self.Block.type[temp])):
+                    if(self.Field[i][j]==1):
+                        if(self.Block.type[temp][k]==1):
+                            if(self.Block.Size==3):
+                                if(k<self.Block.Size):
+                                    if(self.Block.xpos+(k*BLOKC_SIZE)==j*BLOKC_SIZE):
+                                        if(self.Block.ypos ==i*BLOKC_SIZE):
+                                            return True
+                                elif(k<2*(self.Block.Size)):
+                                    if(self.Block.xpos+((k-self.Block.Size)*BLOKC_SIZE)==j*BLOKC_SIZE):
+                                        if(self.Block.ypos+(2*BLOKC_SIZE) ==i*BLOKC_SIZE):
+                                            return True
+                                else:
+                                    if(self.Block.xpos+((k-(2*self.Block.Size))*BLOKC_SIZE)==j*BLOKC_SIZE):
+                                        if(self.Block.ypos+(3*BLOKC_SIZE) ==i*BLOKC_SIZE):
+                                            return True
+                            elif(self.Block.Size==4):
+                                if(k<self.Block.Size):
+                                    if(self.Block.xpos+(k*BLOKC_SIZE)==j*BLOKC_SIZE):
+                                        if(self.Block.ypos+BLOKC_SIZE ==i*BLOKC_SIZE):
+                                            return True
+                                elif(k<2*(self.Block.Size)):
+                                    if(self.Block.xpos+((k-self.Block.Size)*BLOKC_SIZE)==j*BLOKC_SIZE):
+                                        if(self.Block.ypos+(2*BLOKC_SIZE) ==i*BLOKC_SIZE):
+                                            return True
+                                elif(k<3*(self.Block.Size)):
+                                    if(self.Block.xpos+((k-(2*self.Block.Size))*BLOKC_SIZE)==j*BLOKC_SIZE):
+                                        if(self.Block.ypos+(3*BLOKC_SIZE) ==i*BLOKC_SIZE):
+                                            return True
+                                else:
+                                    if(self.Block.xpos+((k-(3*self.Block.Size))*BLOKC_SIZE)==j*BLOKC_SIZE):
+                                        if(self.Block.ypos+(4*BLOKC_SIZE) ==i*BLOKC_SIZE):
+                                            return True
+        return False
+    #게임 오버 함수
+    def GameOver(self):
+        for j in range(1,width-1):
+            if(self.Field[0][j]==1):
+                self.gameover = True
+    #내려오는 도형 그리는 함수
+    def DrawBlocks(self):
+            for j in range(len(self.Block.type[self.Block.turn])):
+                if(self.Block.type[self.Block.turn][j]!=0):
+                    if(self.Block.Size==3):
+                        if(j<self.Block.Size):
+                            pygame.draw.rect(screen, BLUE, [self.Block.xpos+(j*BLOKC_SIZE),self.Block.ypos,BLOKC_SIZE,BLOKC_SIZE])
+                            pygame.draw.rect(screen, BLACK, [self.Block.xpos+(j*BLOKC_SIZE),self.Block.ypos,BLOKC_SIZE,BLOKC_SIZE],2)
+                        elif(j<2*(self.Block.Size)):
+                            pygame.draw.rect(screen, BLUE, [self.Block.xpos+((j-self.Block.Size)*BLOKC_SIZE),self.Block.ypos+BLOKC_SIZE,BLOKC_SIZE,BLOKC_SIZE])
+                            pygame.draw.rect(screen, BLACK, [self.Block.xpos+((j-self.Block.Size)*BLOKC_SIZE),self.Block.ypos+BLOKC_SIZE,BLOKC_SIZE,BLOKC_SIZE],2)
+                        else:
+                            pygame.draw.rect(screen, BLUE, [self.Block.xpos+((j-(2*self.Block.Size))*BLOKC_SIZE),self.Block.ypos+(BLOKC_SIZE*2),BLOKC_SIZE,BLOKC_SIZE])
+                            pygame.draw.rect(screen, BLACK, [self.Block.xpos+((j-(2*self.Block.Size))*BLOKC_SIZE),self.Block.ypos+(BLOKC_SIZE*2),BLOKC_SIZE,BLOKC_SIZE],2)
+                    elif(self.Block.Size==4):
+                        if(j<self.Block.Size):
+                            pygame.draw.rect(screen, BLUE, [self.Block.xpos+(j*BLOKC_SIZE),self.Block.ypos,BLOKC_SIZE,BLOKC_SIZE])
+                            pygame.draw.rect(screen, BLACK, [self.Block.xpos+(j*BLOKC_SIZE),self.Block.ypos,BLOKC_SIZE,BLOKC_SIZE],2)
+                        elif(j<2*(self.Block.Size)):
+                            pygame.draw.rect(screen, BLUE, [self.Block.xpos+((j-self.Block.Size)*BLOKC_SIZE),self.Block.ypos+BLOKC_SIZE,BLOKC_SIZE,BLOKC_SIZE])
+                            pygame.draw.rect(screen, BLACK, [self.Block.xpos+((j-self.Block.Size)*BLOKC_SIZE),self.Block.ypos+BLOKC_SIZE,BLOKC_SIZE,BLOKC_SIZE],2)
+                        elif(j<3*(self.Block.Size)):
+                            pygame.draw.rect(screen, BLUE, [self.Block.xpos+((j-(2*self.Block.Size))*BLOKC_SIZE),self.Block.ypos+(BLOKC_SIZE*2),BLOKC_SIZE,BLOKC_SIZE])
+                            pygame.draw.rect(screen, BLACK, [self.Block.xpos+((j-(2*self.Block.Size))*BLOKC_SIZE),self.Block.ypos+(BLOKC_SIZE*2),BLOKC_SIZE,BLOKC_SIZE],2)
+                        else:
+                            pygame.draw.rect(screen, BLUE, [self.Block.xpos+((j-(3*self.Block.Size))*BLOKC_SIZE),self.Block.ypos+(BLOKC_SIZE*3),BLOKC_SIZE,BLOKC_SIZE])
+                            pygame.draw.rect(screen, BLACK, [self.Block.xpos+((j-(3*self.Block.Size))*BLOKC_SIZE),self.Block.ypos+(BLOKC_SIZE*3),BLOKC_SIZE,BLOKC_SIZE],2)
+    #스페이스바 입력 시 블락사이즈 만큼 한칸 씩 밑으로 내려 충돌할때까지 내리는 함수
+    def MoveDownFastBlock(self):
+        while self.ColliderBlock(self.Block.xpos,self.Block.ypos)==False:
+            self.Block.ypos+=BLOKC_SIZE
+        self.CopyField()
+        self.addBlock()
+    #도형을 움직이는 함수
+    def MoveBlock(self,key):
+        if(key=="LEFT"):
+            if(self.ColliderLeftRight(-BLOKC_SIZE)==False):
+                self.Block.xpos-=BLOKC_SIZE
+        elif(key=="RIGHT"):
+            if(self.ColliderLeftRight(BLOKC_SIZE)==False):
+                self.Block.xpos+=BLOKC_SIZE
+        elif(key =="UP"):
+            if(self.ColliderChangeTurn()==False):
+                if(self.Block.turn==3):
+                    self.Block.turn=0
+                else:
+                    self.Block.turn+=1
+        elif(key=="SPACE"):
+            self.MoveDownFastBlock()
+    #움직이는 도형을 한칸 씩 내리는 함수
+    def MoveDownBlocks(self):
+        if(self.ColliderBlock(self.Block.xpos,self.Block.ypos)):
+            self.CopyField()
+            self.addBlock()
+        self.Block.ypos+=BLOKC_SIZE
+    #난이도 조절하는 함수
+    def ChangeDifficult(self,UpDown):
+        if UpDown == True:
+            if self.Difficult>1:
+                self.Difficult-=1
+        elif UpDown == False:
+            if self.Difficult<10:
+                self.Difficult+=1
+
+
+GameManager = Tetris()
+second_tick = 0
+difficult_tick = 0
+scoreWord = "score : "
+difficultWord = "Level : "
+#파이게임에 게임 업데이트 문
+while not done:
+    #시간 값을 가져온다
+    start_ticks = pygame.time.get_ticks()
+    clock.tick(GameSpeed)
+    
+    for event in pygame.event.get():
+        if event.type == pygame.QUIT:
+            done=True
+        #특정 키 이벤트시 사용해야 할 함수 연결
+        if event.type == pygame.KEYDOWN:
+            if event.key ==pygame.K_LEFT:
+                GameManager.MoveBlock("LEFT")
+            if event.key ==pygame.K_RIGHT:
+                GameManager.MoveBlock("RIGHT")
+            if event.key ==pygame.K_UP:
+                GameManager.MoveBlock("UP")
+            if event.key ==pygame.K_SPACE:
+                GameManager.MoveDownFastBlock()
+            if event.key ==pygame.K_LCTRL:
+                GameManager.ChangeBlock()
+            if event.key ==pygame.K_LSHIFT:
+                GameManager.ChangeDifficult(True)
+            if event.key ==pygame.K_RSHIFT:
+                GameManager.ChangeDifficult(False)
+            
+    screen.fill(WHITE)
+    #스코어 그리기
+    textSurfaceObj = font.render(scoreWord+str(GameManager.Score), True, BLACK, WHITE)
+    screen.blit(textSurfaceObj, textRectObj2)
+    #난이도 그리기
+    textSurfaceObj = font.render(difficultWord+str(GameManager.Difficult), True, BLACK, WHITE)
+    screen.blit(textSurfaceObj, textRectObj)
+    #게임이 시작되는 순간 증가하여 지는 변수를 활용하여 프레임을 이용하지 않고 게임 스피드를 결정
+    if start_ticks-second_tick>difficult-(100*GameManager.Difficult):
+        if(GameManager.gameover==False):
+            GameManager.MoveDownBlocks()
+            second_tick=start_ticks
+    
+    GameManager.ClearLine()
+    GameManager.DrawField()
+    GameManager.DrawDeepBlock()
+    GameManager.DrawBlocks()
+    GameManager.DrawNextBlock()
+    GameManager.GameOver()
+    
+    if(GameManager.gameover==True):
+        textSurfaceObj = font2.render("Game Over!!", True, RED, WHITE)
+        screen.blit(textSurfaceObj, textRectObj3)
+    textSurfaceObj = font.render("SPACE : Descent", True, BLACK, WHITE)
+    screen.blit(textSurfaceObj, textRectObj4)
+    textSurfaceObj = font.render("CTRL : Change", True, BLACK, WHITE)
+    screen.blit(textSurfaceObj, textRectObj5)
+    textSurfaceObj = font.render("LSHIFT : Difficult-", True, BLACK, WHITE)
+    screen.blit(textSurfaceObj, textRectObj6)
+    textSurfaceObj = font.render("RSHIFT : Difficult+", True, BLACK, WHITE)
+    screen.blit(textSurfaceObj, textRectObj7)
+    pygame.display.flip()
+  
+pygame.quit()
+
